@@ -26,6 +26,7 @@ import android.content.DialogInterface;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.dropbox.sync.android.DbxAccount;
 import com.dropbox.sync.android.DbxAccountManager;
 import com.dropbox.sync.android.DbxFile;
 import com.dropbox.sync.android.DbxFileInfo;
@@ -39,6 +40,7 @@ public class MainActivity extends Activity implements OnClickListener {
     final static private String APP_SECRET = "vd0iwxgjys3ks0t";
 
     private DbxAccountManager mAccountManager;
+    private DbxAccount mAccount;
 
     private DrawingView drawView;
     private ImageButton currPaint, drawBtn, eraseBtn, newBtn, saveBtn;
@@ -71,7 +73,13 @@ public class MainActivity extends Activity implements OnClickListener {
         mTestOutput = (TextView) findViewById(R.id.test_output);
 
         mAccountManager = DbxAccountManager.getInstance(getApplicationContext(), APP_KEY, APP_SECRET);
-
+        if (mAccountManager.hasLinkedAccount()) {
+            mAccount = mAccountManager.getLinkedAccount();
+            authBtn.setVisibility(View.GONE);
+            // ... Now display your own UI using the linked account information.
+        } else {
+            authBtn.setVisibility(View.VISIBLE);
+        }
     }
 
     @Override
@@ -164,12 +172,44 @@ public class MainActivity extends Activity implements OnClickListener {
             });
             newDialog.show();
         }else if(view.getId()==R.id.save_btn){
-            //save drawing
-            AlertDialog.Builder saveDialog = new AlertDialog.Builder(this);
-            saveDialog.setTitle("Save drawing");
-            saveDialog.setMessage("Save drawing to device Gallery?");
-            saveDialog.setPositiveButton("Yes", new DialogInterface.OnClickListener(){
-                public void onClick(DialogInterface dialog, int which){
+            if(mAccountManager.hasLinkedAccount()){
+                AlertDialog.Builder saveDropbox = new AlertDialog.Builder(this);
+                saveDropbox.setTitle("Save drawing to DropBox");
+                saveDropbox.setMessage("Save drawing to DropBox?");
+                saveDropbox.setPositiveButton("Yes", new DialogInterface.OnClickListener(){
+                    public void onClick(DialogInterface dialog, int which){
+                        //save drawing
+                        drawView.setDrawingCacheEnabled(true);
+                        Bitmap b = drawView.getDrawingCache();
+                        String imgSaved = MediaStore.Images.Media.insertImage(
+                                getContentResolver(), b,
+                                UUID.randomUUID().toString()+".png", "drawing");
+                        if(imgSaved!=null){
+                            Toast savedToast = Toast.makeText(getApplicationContext(),
+                                    "Drawing saved to Gallery!", Toast.LENGTH_SHORT);
+                            savedToast.show();
+                        }
+                        else{
+                            Toast unsavedToast = Toast.makeText(getApplicationContext(),
+                                    "Oops! Image could not be saved.", Toast.LENGTH_SHORT);
+                            unsavedToast.show();
+                        }
+                        drawView.destroyDrawingCache();
+                    }
+                });
+                saveDropbox.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
+                    public void onClick(DialogInterface dialog, int which){
+                        dialog.cancel();
+                    }
+                });
+                saveDropbox.show();
+            }else{
+                //save drawing
+                AlertDialog.Builder saveDialog = new AlertDialog.Builder(this);
+                saveDialog.setTitle("Save drawing");
+                saveDialog.setMessage("Save drawing to device Gallery?");
+                saveDialog.setPositiveButton("Yes", new DialogInterface.OnClickListener(){
+                    public void onClick(DialogInterface dialog, int which){
                     //save drawing
                     drawView.setDrawingCacheEnabled(true);
                     Bitmap b = drawView.getDrawingCache();
@@ -187,14 +227,15 @@ public class MainActivity extends Activity implements OnClickListener {
                         unsavedToast.show();
                     }
                     drawView.destroyDrawingCache();
-                }
-            });
-            saveDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
-                public void onClick(DialogInterface dialog, int which){
-                    dialog.cancel();
-                }
-            });
-            saveDialog.show();
+                    }
+                });
+                saveDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
+                    public void onClick(DialogInterface dialog, int which){
+                        dialog.cancel();
+                    }
+                });
+                saveDialog.show();
+            }
         }else if(view.getId()==R.id.auth_button){
             mAccountManager.startLink((Activity)this, REQUEST_LINK_TO_DBX);
         }
@@ -255,6 +296,7 @@ public class MainActivity extends Activity implements OnClickListener {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_LINK_TO_DBX) {
             if (resultCode == Activity.RESULT_OK) {
+                mAccount = mAccountManager.getLinkedAccount();
                 doDropboxTest();
                 authBtn.setVisibility(View.GONE);
                 // ... Now display your own UI using the linked account information.
