@@ -55,13 +55,17 @@ public class MainActivity extends Activity implements OnClickListener {
         drawView = (DrawingView)findViewById(R.id.drawing);
         LinearLayout paintLayout = (LinearLayout)findViewById(R.id.paint_colors);
         currPaint = (ImageButton)paintLayout.getChildAt(0);
-        currPaint.setImageDrawable(getResources().getDrawable(R.drawable.paint_pressed));
+        //currPaint.setImageDrawable(getResources().getDrawable(R.drawable.paint_pressed));
         smallBrush = getResources().getInteger(R.integer.small_size);
         mediumBrush = getResources().getInteger(R.integer.medium_size);
         largeBrush = getResources().getInteger(R.integer.large_size);
         drawBtn = (ImageButton)findViewById(R.id.draw_btn);
         drawBtn.setOnClickListener(this);
         drawView.setBrushSize(smallBrush);
+
+        String color = "#65BCA5";
+        drawView.setColor(color);
+
         eraseBtn = (ImageButton)findViewById(R.id.erase_btn);
         eraseBtn.setOnClickListener(this);
         newBtn = (ImageButton)findViewById(R.id.new_btn);
@@ -286,9 +290,9 @@ public class MainActivity extends Activity implements OnClickListener {
             String color = view.getTag().toString();
             drawView.setColor(color);
             drawView.setBrushSize(drawView.getLastBrushSize());
-            imgView.setImageDrawable(getResources().getDrawable(R.drawable.paint_pressed));
-            currPaint.setImageDrawable(getResources().getDrawable(R.drawable.paint));
-            currPaint=(ImageButton)view;
+            //imgView.setImageDrawable(getResources().getDrawable(R.drawable.paint_pressed));
+            //currPaint.setImageDrawable(getResources().getDrawable(R.drawable.paint));
+            //currPaint=(ImageButton)view;
         }
     }
 
