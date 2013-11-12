@@ -1,6 +1,10 @@
 package com.chalkbored;
 
+import java.io.IOException;
+import java.util.List;
+
 import android.app.Activity;
+import android.content.Intent;
 import android.app.Fragment;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -8,7 +12,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.View.OnClickListener;
+import android.widget.Button;
 import android.widget.ImageButton;
+
 import android.widget.LinearLayout;
 import android.graphics.Bitmap;
 import java.util.UUID;
@@ -16,13 +23,27 @@ import android.provider.MediaStore;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
-import android.view.View.OnClickListener;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.dropbox.sync.android.DbxAccountManager;
+import com.dropbox.sync.android.DbxFile;
+import com.dropbox.sync.android.DbxFileInfo;
+import com.dropbox.sync.android.DbxFileSystem;
+import com.dropbox.sync.android.DbxPath;
+
 public class MainActivity extends Activity implements OnClickListener {
+    static final int REQUEST_LINK_TO_DBX = 0;
+
+    final static private String APP_KEY = "u7uqp9yw4olbhwi";
+    final static private String APP_SECRET = "vd0iwxgjys3ks0t";
+
+    private DbxAccountManager mAccountManager;
 
     private DrawingView drawView;
     private ImageButton currPaint, drawBtn, eraseBtn, newBtn, saveBtn;
+    private Button authBtn;
+    private TextView mTestOutput;
     private float smallBrush, mediumBrush, largeBrush;
 
     @Override
@@ -45,6 +66,12 @@ public class MainActivity extends Activity implements OnClickListener {
         newBtn.setOnClickListener(this);
         saveBtn = (ImageButton)findViewById(R.id.save_btn);
         saveBtn.setOnClickListener(this);
+        authBtn = (Button)findViewById(R.id.auth_button);
+        authBtn.setOnClickListener(this);
+        mTestOutput = (TextView) findViewById(R.id.test_output);
+
+        mAccountManager = DbxAccountManager.getInstance(getApplicationContext(), APP_KEY, APP_SECRET);
+
     }
 
     @Override
@@ -168,6 +195,8 @@ public class MainActivity extends Activity implements OnClickListener {
                 }
             });
             saveDialog.show();
+        }else if(view.getId()==R.id.auth_button){
+            mAccountManager.startLink((Activity)this, REQUEST_LINK_TO_DBX);
         }
     }
 
@@ -221,4 +250,71 @@ public class MainActivity extends Activity implements OnClickListener {
             currPaint=(ImageButton)view;
         }
     }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_LINK_TO_DBX) {
+            if (resultCode == Activity.RESULT_OK) {
+                doDropboxTest();
+                authBtn.setVisibility(View.GONE);
+                // ... Now display your own UI using the linked account information.
+            } else {
+                mTestOutput.setText("Link to Dropbox failed or was cancelled.");
+                authBtn.setVisibility(View.VISIBLE);
+            }
+        } else {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    private void doDropboxTest() {
+        mTestOutput.setText("Dropbox Sync API Version "+DbxAccountManager.SDK_VERSION_NAME+"\n");
+        try {
+            final String TEST_DATA = "Hello Dropbox";
+            final String TEST_FILE_NAME = "hello_dropbox.txt";
+            DbxPath testPath = new DbxPath(DbxPath.ROOT, TEST_FILE_NAME);
+
+            // Create DbxFileSystem for synchronized file access.
+            DbxFileSystem dbxFs = DbxFileSystem.forAccount(mAccountManager.getLinkedAccount());
+
+            // Print the contents of the root folder.  This will block until we can
+            // sync metadata the first time.
+            List<DbxFileInfo> infos = dbxFs.listFolder(DbxPath.ROOT);
+            mTestOutput.append("\nContents of app folder:\n");
+            for (DbxFileInfo info : infos) {
+                mTestOutput.append("    " + info.path + ", " + info.modifiedTime + '\n');
+            }
+
+            // Create a test file only if it doesn't already exist.
+            if (!dbxFs.exists(testPath)) {
+                DbxFile testFile = dbxFs.create(testPath);
+                try {
+                    testFile.writeString(TEST_DATA);
+                } finally {
+                    testFile.close();
+                }
+                mTestOutput.append("\nCreated new file '" + testPath + "'.\n");
+            }
+
+            // Read and print the contents of test file.  Since we're not making
+            // any attempt to wait for the latest version, this may print an
+            // older cached version.  Use getSyncStatus() and/or a listener to
+            // check for a new version.
+            if (dbxFs.isFile(testPath)) {
+                String resultData;
+                DbxFile testFile = dbxFs.open(testPath);
+                try {
+                    resultData = testFile.readString();
+                } finally {
+                    testFile.close();
+                }
+                mTestOutput.append("\nRead file '" + testPath + "' and got data:\n    " + resultData);
+            } else if (dbxFs.isFolder(testPath)) {
+                mTestOutput.append("'" + testPath.toString() + "' is a folder.\n");
+            }
+        } catch (IOException e) {
+            mTestOutput.setText("Dropbox test failed: " + e);
+        }
+    }
+
 }
