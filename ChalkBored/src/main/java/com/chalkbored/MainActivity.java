@@ -1,12 +1,17 @@
 package com.chalkbored;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.app.Fragment;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -14,8 +19,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.View.OnClickListener;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.graphics.Bitmap;
 import java.util.UUID;
@@ -38,6 +45,8 @@ public class MainActivity extends Activity implements OnClickListener {
 
     final static private String APP_KEY = "u7uqp9yw4olbhwi";
     final static private String APP_SECRET = "vd0iwxgjys3ks0t";
+
+    private String fileName = "";
 
     private DbxAccountManager mAccountManager;
     private DbxAccount mAccount;
@@ -178,22 +187,69 @@ public class MainActivity extends Activity implements OnClickListener {
         }else if(view.getId()==R.id.save_btn){
             if(mAccountManager.hasLinkedAccount()){
                 AlertDialog.Builder saveDropbox = new AlertDialog.Builder(this);
+                final EditText input = new EditText(this);
+                input.setInputType(InputType.TYPE_CLASS_TEXT);
+                saveDropbox.setView(input);
                 saveDropbox.setTitle("Save drawing to DropBox");
                 saveDropbox.setMessage("Save drawing to DropBox?");
-                saveDropbox.setPositiveButton("Yes", new DialogInterface.OnClickListener(){
-                    public void onClick(DialogInterface dialog, int which){
+                saveDropbox.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
                         //save drawing
+                        if(input.getText().toString().length() > 0){
+                            fileName = input.getText().toString();
+                        }else{
+                            fileName = UUID.randomUUID().toString();
+                        }
                         drawView.setDrawingCacheEnabled(true);
                         Bitmap b = drawView.getDrawingCache();
                         String imgSaved = MediaStore.Images.Media.insertImage(
                                 getContentResolver(), b,
-                                UUID.randomUUID().toString()+".png", "drawing");
-                        if(imgSaved!=null){
+                                fileName + ".png", "drawing");
+                        if (imgSaved != null) {
+                            try {
+                                final String IMG_FILE = fileName + ".png";
+                                DbxPath imgPath = new DbxPath(DbxPath.ROOT, IMG_FILE);
+
+                                // Create DbxFileSystem for synchronized file access.
+                                DbxFileSystem dbxFs = DbxFileSystem.forAccount(mAccountManager.getLinkedAccount());
+
+                                // Print the contents of the root folder.  This will block until we can
+                                // sync metadata the first time.
+                                List<DbxFileInfo> infos = dbxFs.listFolder(DbxPath.ROOT);
+
+                                // Create a test file only if it doesn't already exist.
+                                if (!dbxFs.exists(imgPath)) {
+                                    DbxFile testFile = dbxFs.create(imgPath);
+                                    testFile.close();
+                                    try {
+                                        testFile = dbxFs.open(imgPath);
+                                        b.compress(Bitmap.CompressFormat.PNG,90,testFile.getWriteStream());
+                                    } finally {
+                                        testFile.close();
+                                    }
+                                }
+
+                                // Read and print the contents of test file.  Since we're not making
+                                // any attempt to wait for the latest version, this may print an
+                                // older cached version.  Use getSyncStatus() and/or a listener to
+                                // check for a new version.
+                                if (dbxFs.isFile(imgPath)) {
+                                    String resultData;
+                                    DbxFile testFile = dbxFs.open(imgPath);
+                                    try {
+                                        resultData = testFile.toString();
+                                    } finally {
+                                        testFile.close();
+                                    }
+                                } else if (dbxFs.isFolder(imgPath)) {
+                                }
+                            } catch (IOException e) {
+                                System.out.println("Dropbox test failed: " + e);
+                            }
                             Toast savedToast = Toast.makeText(getApplicationContext(),
-                                    "Drawing saved to Gallery!", Toast.LENGTH_SHORT);
+                                    "Drawing saved to DropBox!", Toast.LENGTH_SHORT);
                             savedToast.show();
-                        }
-                        else{
+                        } else {
                             Toast unsavedToast = Toast.makeText(getApplicationContext(),
                                     "Oops! Image could not be saved.", Toast.LENGTH_SHORT);
                             unsavedToast.show();
@@ -201,8 +257,8 @@ public class MainActivity extends Activity implements OnClickListener {
                         drawView.destroyDrawingCache();
                     }
                 });
-                saveDropbox.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
-                    public void onClick(DialogInterface dialog, int which){
+                saveDropbox.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
                         dialog.cancel();
                     }
                 });
@@ -314,7 +370,7 @@ public class MainActivity extends Activity implements OnClickListener {
     }
 
     private void doDropboxTest() {
-        mTestOutput.setText("Dropbox Sync API Version "+DbxAccountManager.SDK_VERSION_NAME+"\n");
+        System.out.println("Dropbox Sync API Version "+DbxAccountManager.SDK_VERSION_NAME+"\n");
         try {
             final String TEST_DATA = "Hello Dropbox";
             final String TEST_FILE_NAME = "hello_dropbox.txt";
@@ -326,9 +382,9 @@ public class MainActivity extends Activity implements OnClickListener {
             // Print the contents of the root folder.  This will block until we can
             // sync metadata the first time.
             List<DbxFileInfo> infos = dbxFs.listFolder(DbxPath.ROOT);
-            mTestOutput.append("\nContents of app folder:\n");
+            System.out.println("\nContents of app folder:\n");
             for (DbxFileInfo info : infos) {
-                mTestOutput.append("    " + info.path + ", " + info.modifiedTime + '\n');
+                System.out.println("    " + info.path + ", " + info.modifiedTime + '\n');
             }
 
             // Create a test file only if it doesn't already exist.
@@ -339,7 +395,7 @@ public class MainActivity extends Activity implements OnClickListener {
                 } finally {
                     testFile.close();
                 }
-                mTestOutput.append("\nCreated new file '" + testPath + "'.\n");
+                System.out.println("\nCreated new file '" + testPath + "'.\n");
             }
 
             // Read and print the contents of test file.  Since we're not making
@@ -354,12 +410,12 @@ public class MainActivity extends Activity implements OnClickListener {
                 } finally {
                     testFile.close();
                 }
-                mTestOutput.append("\nRead file '" + testPath + "' and got data:\n    " + resultData);
+                System.out.println("\nRead file '" + testPath + "' and got data:\n    " + resultData);
             } else if (dbxFs.isFolder(testPath)) {
-                mTestOutput.append("'" + testPath.toString() + "' is a folder.\n");
+                System.out.println("'" + testPath.toString() + "' is a folder.\n");
             }
         } catch (IOException e) {
-            mTestOutput.setText("Dropbox test failed: " + e);
+            System.out.println("Dropbox test failed: " + e);
         }
     }
 
