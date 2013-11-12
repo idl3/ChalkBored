@@ -1,7 +1,6 @@
 package com.chalkbored;
 
 import android.app.Activity;
-import android.app.ActionBar;
 import android.app.Fragment;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -12,7 +11,6 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.graphics.Bitmap;
-import android.os.Build;
 import java.util.UUID;
 import android.provider.MediaStore;
 import android.app.AlertDialog;
@@ -223,5 +221,4 @@ public class MainActivity extends Activity implements OnClickListener {
             currPaint=(ImageButton)view;
         }
     }
-
 }
