@@ -5,6 +5,12 @@
         <!-- Customize your theme here. -->
     </style>
     <style name="TitleText" parent="android:Theme.Holo.Light.DarkActionBar">
-        <item name="android:windowTitleSize">20dip</item>
+        <item name="android:windowTitleSize">14dip</item>
+        <item name="android:windowTitleStyle">
+            @style/titleBackground
+        </item>
+    </style>
+    <style name="titleBackground">
+        <item name="android:background">#FFEAAE28</item>
     </style>
 </resources>
