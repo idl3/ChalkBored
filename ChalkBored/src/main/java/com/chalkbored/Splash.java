@@ -75,26 +75,32 @@ public class Splash extends Activity implements View.OnClickListener  {
         }
     }
 
-    @Override
+
     public void onClick(View view){
         if(view.getId()==R.id.authBtn){
+            System.out.println("test test test test test test test test test");
             mAccountManager.startLink((Activity)this, REQUEST_LINK_TO_DBX);
+
         }
     }
 
+
+    @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        System.out.println("I'm here baby!!!!!!");
         if (requestCode == REQUEST_LINK_TO_DBX) {
             if (resultCode == Activity.RESULT_OK) {
                 mAccount = mAccountManager.getLinkedAccount();
                 authBtn.setVisibility(View.GONE);
                 // ... Now display your own UI using the linked account information.
+
+
+                Intent intent = new Intent(Splash.this,MainActivity.class);
+                startActivity(intent);
             } else {
                 authBtn.setVisibility(View.VISIBLE);
             }
-            System.out.println(requestCode);
-            System.out.println(resultCode);
-            Intent intent = new Intent(Splash.this,MainActivity.class);
-            startActivity(intent);
+
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
